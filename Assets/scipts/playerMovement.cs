@@ -7,26 +7,38 @@ public class playerMovement : MonoBehaviour
     private CharacterController controller;
     private Vector3 direction;
     public float forwardSpeed;
+    public float maxSpeed;
     private int desiredLane = 1;
     public float laneDistance = 4;
     public float jumpForce;
     public float Gravity = -20;
 
+    public Animator animator;
+    private bool isSliding = false;
+
     // Start is called before the first frame update
     void Start()
     {
         controller = GetComponent<CharacterController>();
+        animator.SetBool("isSliding", false); // Ensure sliding is off at the start
+
     }
 
-    // Update is called once per frame
     void Update()
     {
+        if (forwardSpeed < maxSpeed)
+        {
+            forwardSpeed += 0.1f * Time.deltaTime;
+        }
+
         direction.z = forwardSpeed;
+        animator.SetBool("isGameStarted", true);
+        animator.SetBool("isGrounded", controller.isGrounded);
 
         if (controller.isGrounded)
         {
             direction.y = -1;
-            if (Input.GetKeyDown(KeyCode.UpArrow))
+            if (Input.GetKeyDown(KeyCode.UpArrow))  // Jump triggered by UpArrow key
             {
                 Jump();
             }
@@ -34,6 +46,11 @@ public class playerMovement : MonoBehaviour
         else
         {
             direction.y += Gravity * Time.deltaTime;
+        }
+
+        if (Input.GetKeyDown(KeyCode.DownArrow) && !isSliding)
+        {
+            StartCoroutine(Slide());
         }
 
         if (Input.GetKeyDown(KeyCode.RightArrow))
@@ -49,6 +66,7 @@ public class playerMovement : MonoBehaviour
                 desiredLane = 0;
         }
 
+        // Update position to the desired lane
         Vector3 targetPosition = transform.position.z * transform.forward + transform.position.y * transform.up;
         if (desiredLane == 0)
         {
@@ -69,7 +87,7 @@ public class playerMovement : MonoBehaviour
                 controller.Move(diff);
         }
 
-        // Use 'direction' instead of undefined 'move'
+        // Use 'direction' for movement
         controller.Move(direction * Time.deltaTime);
     }
 
@@ -80,14 +98,33 @@ public class playerMovement : MonoBehaviour
 
     private void Jump()
     {
-        direction.y = jumpForce;
+        direction.y = jumpForce; // Apply upward force to the player
     }
-      private void OnControllerColliderHit(ControllerColliderHit hit)
+
+    private void OnControllerColliderHit(ControllerColliderHit hit)
     {
-        if(hit.transform.tag == "Obstacle")
+        if (hit.transform.tag == "Obstacle")
         {
-            PlayerManager.gameOver = true;
-            
+            PlayerManager.gameOver = true;  // End the game if player hits an obstacle
+            AudioManager audioManager = FindObjectOfType<AudioManager>();
+            audioManager.StopSound("MainTheme"); // Stop the main theme
+            audioManager.PlaySound("GameOver");  // Play the GameOver sound
         }
+    }
+
+    private IEnumerator Slide()
+    {
+        isSliding = true;
+        animator.SetBool("isSliding", true);
+        controller.center = new Vector3(0, -0.5f, 0);
+        controller.height = 1;
+
+        yield return new WaitForSeconds(1.1f);  // Adjust for animation length
+
+        // Reset controller height and center after sliding
+        controller.center = new Vector3(0, 0, 0);
+        controller.height = 2;
+        animator.SetBool("isSliding", false);
+        isSliding = false; // End sliding state
     }
 }
